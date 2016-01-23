@@ -30,7 +30,7 @@ class PersonalCapital(object):
         accts = []
 
         sadiv = self.browser.find_element_by_xpath(
-                "//div[@id='sidebarAccounts']")
+            "//div[@id='sidebarAccounts']")
 
         # get net worth total
         nw = sadiv.find_element_by_xpath(".//div[@class='netWorth']")
@@ -41,7 +41,8 @@ class PersonalCapital(object):
         alist = sadiv.find_element_by_xpath(".//ul[@class='accountsList']")
 
         # get bank accounts:
-        ul = alist.find_element_by_xpath(".//li[@class='accountGroup BANK']/ul")
+        ul = alist.find_element_by_xpath(
+            ".//li[@class='accountGroup BANK']/ul")
         accounts = ul.find_elements_by_xpath(".//li")
         for account in accounts:
             row = account.find_element_by_xpath("./div[@class='row']")
@@ -55,7 +56,8 @@ class PersonalCapital(object):
             )
 
         # get investment accounts:
-        ul = alist.find_element_by_xpath(".//li[@class='accountGroup INVESTMENT']/ul")
+        ul = alist.find_element_by_xpath(
+            ".//li[@class='accountGroup INVESTMENT']/ul")
         accounts = ul.find_elements_by_xpath(".//li")
         for account in accounts:
             row = account.find_element_by_xpath("./div[@class='row']")
@@ -74,7 +76,6 @@ class PersonalCapital(object):
 
         return accts
 
-
     def _add_cookies(self):
         """Add any cookies for the current browser page"""
 
@@ -88,11 +89,11 @@ class PersonalCapital(object):
             # if the cookie domain is a substring of the
             # browser domain, add the cookie to the session:
             if domain.find(c['domain']) != -1:
-                #LOG.debug("Maybe adding cookie: %s" % c)
-                
+                # LOG.debug("Maybe adding cookie: %s" % c)
+
                 # make sure cookie doesn't already exist
                 if self.browser.get_cookie(c['name']):
-                    #LOG.debug("Cookie %s already added" % c['name'])
+                    # LOG.debug("Cookie %s already added" % c['name'])
                     continue
 
                 else:
@@ -141,7 +142,7 @@ class PersonalCapital(object):
 
     def _login_container(self):
         return self.browser.find_element_by_xpath(
-                "//div[@id='loginContainer']")
+            "//div[@id='loginContainer']")
 
     def _save_cookies(self):
         """Save cookies so we can present as a known device for
@@ -156,7 +157,7 @@ class PersonalCapital(object):
 
         pruned = num - len(cookies)
         LOG.debug("Pruned %d session cookies" % pruned)
-        
+
         cfile = os.path.join(CONF_DIR, 'cookies.json')
         f = open(cfile, 'w')
         buf = json.dumps(cookies, indent=4, sort_keys=True)
@@ -212,14 +213,14 @@ class PersonalCapital(object):
         # intervention
         container = self._login_container()
         form = container.find_element_by_xpath(
-                "./form[@id='form-challengeRequest']")
+            "./form[@id='form-challengeRequest']")
 
         if self._visible(form):
             # challenge form *is* displayed -- click continue button, challenge
             # will be sent to an authorized device
             LOG.debug("Handling challenge form")
             button = form.find_element_by_xpath(".//button[@type='submit']")
-            button.click()        
+            button.click()
 
             LOG.debug("Waiting here for human to complete challenge!")
 
@@ -228,7 +229,7 @@ class PersonalCapital(object):
             LOG.debug("Waiting for password prompt")
             container = self._login_container()
             form = container.find_element_by_xpath(
-                    "./form[@id='form-password']")
+                "./form[@id='form-password']")
 
             if not self._visible(form):
                 LOG.debug("Password prompt not yet ready")
@@ -257,6 +258,7 @@ class PersonalCapital(object):
         # save cookies now that we're logged in
         self._save_cookies()
 
+
 if __name__ == '__main__':
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
@@ -267,5 +269,3 @@ if __name__ == '__main__':
     accounts = pcap.accounts()
 
     LOG.debug("Account values: %s" % accounts)
-    import pdb; pdb.set_trace()
-    
