@@ -15,7 +15,8 @@ DOMAIN_RE = re.compile(r'https://(?P<domain>.*?)/.*$')
 
 LOG = logging.getLogger(__name__)
 
-Account = collections.namedtuple('Account', ['name', 'type', 'balance'])
+Account = collections.namedtuple('Account', ['name', 'detail',
+                                             'type', 'balance'])
 
 
 class PersonalCapital(object):
@@ -45,14 +46,21 @@ class PersonalCapital(object):
             ".//li[@class='accountGroup BANK']/ul")
         accounts = ul.find_elements_by_xpath(".//li")
         for account in accounts:
-            row = account.find_element_by_xpath("./div[@class='row']")
+            rows = account.find_elements_by_xpath(".//div[@class='row']")
+            row = rows[0]
             name = row.find_element_by_xpath("./a").text
             value = row.find_element_by_xpath("./div[@class='balance']").\
                 get_attribute('title')
-            LOG.debug("Bank account: %s = %s" % (name, value))
+
+            # 2nd row has the full account name details:
+            row = rows[1]
+            detail = row.find_element_by_xpath("./div[@class='accountName']")\
+                .text
+
+            LOG.debug("Bank account: %s - %s = %s" % (name, detail, value))
 
             accts.append(
-                Account(name, 'cash', value)
+                Account(name, detail, 'cash', self._currency_to_float(value))
             )
 
         # get investment accounts:
@@ -60,7 +68,9 @@ class PersonalCapital(object):
             ".//li[@class='accountGroup INVESTMENT']/ul")
         accounts = ul.find_elements_by_xpath(".//li")
         for account in accounts:
-            row = account.find_element_by_xpath("./div[@class='row']")
+            rows = account.find_elements_by_xpath("./div[@class='row']")
+
+            row = rows[0]
             a = row.find_element_by_xpath("./a")
 
             # now sure why, but .text was not always working:
@@ -68,10 +78,18 @@ class PersonalCapital(object):
 
             value = row.find_element_by_xpath("./div[@class='balance']").\
                 get_attribute('title')
-            LOG.debug("Investment account: %s = %s" % (name, value))
+
+            # 2nd row has the full account name details:
+            row = rows[1]
+            detail = row.find_element_by_xpath("./div[@class='accountName']")\
+                .get_attribute('title')
+
+            LOG.debug("Investment account: %s - %s = %s" % (name, detail,
+                                                            value))
 
             accts.append(
-                Account(name, 'investment', value)
+                Account(name, detail, 'investment',
+                        self._currency_to_float(value))
             )
 
         return accts
@@ -109,6 +127,12 @@ class PersonalCapital(object):
         username = cfg.get('DEFAULT', 'username')
         password = cfg.get('DEFAULT', 'password')
         return username, password
+
+    def _currency_to_float(self, s):
+        """Convert a currency string to a float"""
+
+        # remove leading $ and ,'s
+        return float(s.replace('$', '').replace(',', ''))
 
     def _load_cookies(self):
         """Add saved cookies to the current session"""
