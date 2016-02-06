@@ -115,7 +115,7 @@ class PersonalCapital(object):
 
         if not os.path.exists(cfile):
             LOG.debug("No saved cookies")
-            return
+            return []
 
         f = open(cfile, 'r')
         buf = f.read()
