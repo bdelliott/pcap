@@ -1,0 +1,12 @@
+[Unit]
+Description=Manage VNC Server on this droplet
+
+[Service]
+Type=forking
+ExecStart=/usr/local/bin/myvncserver start
+ExecStop=/usr/local/bin/myvncserver stop
+ExecReload=/usr/local/bin/myvncserver restart
+User=bde
+
+[Install]
+WantedBy=multi-user.target

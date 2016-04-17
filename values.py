@@ -7,15 +7,16 @@ import time
 
 import pcap
 
+DB_PATH = os.path.join(pcap.CONF_DIR, "pcap.db")
+
 
 def store_values(values):
     """Store a current snapshot of account values"""
-    db_path = os.path.join(pcap.CONF_DIR, "pcap.db")
 
     conn = None
 
     try:
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(DB_PATH)
         _init_db(conn)
 
         if values is None or len(values) == 0:
@@ -41,7 +42,7 @@ def store_values(values):
         conn.commit()
 
     finally:
-            conn.close()
+        conn.close()
 
 
 def _init_db(conn):

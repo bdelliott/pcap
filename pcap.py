@@ -19,6 +19,14 @@ Account = collections.namedtuple('Account', ['name', 'detail',
                                              'type', 'balance'])
 
 
+def read_config():
+    cfg = ConfigParser.RawConfigParser()
+
+    path = os.path.join(CONF_DIR, "pcap.conf")
+    cfg.read([path])
+    return cfg
+
+
 class PersonalCapital(object):
 
     def __init__(self):
@@ -119,10 +127,7 @@ class PersonalCapital(object):
                     self.browser.add_cookie(c)
 
     def _creds(self):
-        cfg = ConfigParser.RawConfigParser()
-
-        path = os.path.join(CONF_DIR, "pcap.conf")
-        cfg.read([path])
+        cfg = read_config()
 
         username = cfg.get('DEFAULT', 'username')
         password = cfg.get('DEFAULT', 'password')
