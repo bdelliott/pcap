@@ -95,8 +95,14 @@ class PersonalCapital(object):
             LOG.debug("Investment account: %s - %s = %s" % (name, detail,
                                                             value))
 
+            # either set account type to 'investment' or '529' for college plans
+            if name.find('Bright Start') != -1 or name.find('529') != -1:
+                atype = '529'
+            else:
+                atype = 'investment'
+
             accts.append(
-                Account(name, detail, 'investment',
+                Account(name, detail, atype,
                         self._currency_to_float(value))
             )
 
