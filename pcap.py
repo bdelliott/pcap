@@ -83,7 +83,7 @@ class PersonalCapital(object):
 
         for name, detail, value in bank_accounts:
             # either set account type to 'investment' or '529' for college plans
-            if name.find('Bright Start') != -1 or name.find('529') != -1:
+            if name.find('Bright Start') != -1 or name.find('529') != -1 or detail.find('529') != -1:
                 atype = '529'
             else:
                 atype = 'investment'
