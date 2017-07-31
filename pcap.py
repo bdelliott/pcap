@@ -1,3 +1,4 @@
+import codecs
 import collections
 import ConfigParser
 import datetime
@@ -35,66 +36,52 @@ class PersonalCapital(object):
         self.cookies = self._load_cookies()
 
     def _accounts(self):
-        """Make a single attempt to read the account values"""
+        """Make a single attempt to read the account values.
+        
+        NOTE - this breaks on occasion as scrapers do.
+        use element.get_attribute('innerHTML') to debug the DOM.
+        """
         accts = []
 
-        sadiv = self.browser.find_element_by_xpath(
-            "//div[@id='sidebarAccounts']")
+        # dump the entire page
+        html = self.browser.find_element_by_xpath('./html')
+
+        # wait until a certain marker appears in DOM:
+        while True:
+            try:
+                nw_span = self.browser.find_element_by_xpath(
+                        ".//span[contains(@class, 'js-sidebar-networth-amount')]")
+                break
+            except selenium.common.exceptions.NoSuchElementException as e:
+                LOG.debug("js-sidebar-networth-amount span not yet present")
+
+            time.sleep(1.0)
+
+        # this is lazy, but add another 5 sec sleep since the bank accounts
+        # aren't always ready:
+        LOG.debug("Lazy wait")
+        time.sleep(5.0)
+
+        # debug
+        self._dump(html, 'page.html')
 
         # get net worth total
-        nw = sadiv.find_element_by_xpath(".//div[@class='netWorth']")
-        amount = nw.find_element_by_xpath("./div[@class='amount']")
-        LOG.debug("Net worth: %s" % amount.text)
 
-        # now do lists of accounts
-        alist = sadiv.find_element_by_xpath(".//ul[@class='accountsList']")
+        amount = nw_span.get_attribute('innerHTML')
+        LOG.debug("Net worth: %s" % amount)
 
         # get bank accounts:
-        ul = alist.find_element_by_xpath(
-            ".//li[@class='accountGroup BANK']/ul")
-        accounts = ul.find_elements_by_xpath(".//li")
-        for account in accounts:
-            rows = account.find_elements_by_xpath(".//div[@class='row']")
-            row = rows[0]
-            name = row.find_element_by_xpath("./a").text
-            value = row.find_element_by_xpath("./div[@class='balance']").\
-                get_attribute('title')
+        bank_accounts = self._accounts_by_group('BANK')
 
-            # 2nd row has the full account name details:
-            row = rows[1]
-            detail = row.find_element_by_xpath("./div[@class='accountName']")\
-                .text
-
-            LOG.debug("Bank account: %s - %s = %s" % (name, detail, value))
-
+        for name, detail, value in bank_accounts:
             accts.append(
                 Account(name, detail, 'cash', self._currency_to_float(value))
             )
 
         # get investment accounts:
-        ul = alist.find_element_by_xpath(
-            ".//li[@class='accountGroup INVESTMENT']/ul")
-        accounts = ul.find_elements_by_xpath(".//li")
-        for account in accounts:
-            rows = account.find_elements_by_xpath("./div[@class='row']")
+        bank_accounts = self._accounts_by_group('INVESTMENT')
 
-            row = rows[0]
-            a = row.find_element_by_xpath("./a")
-
-            # now sure why, but .text was not always working:
-            name = a.get_attribute('innerHTML')
-
-            value = row.find_element_by_xpath("./div[@class='balance']").\
-                get_attribute('title')
-
-            # 2nd row has the full account name details:
-            row = rows[1]
-            detail = row.find_element_by_xpath("./div[@class='accountName']")\
-                .get_attribute('title')
-
-            LOG.debug("Investment account: %s - %s = %s" % (name, detail,
-                                                            value))
-
+        for name, detail, value in bank_accounts:
             # either set account type to 'investment' or '529' for college plans
             if name.find('Bright Start') != -1 or name.find('529') != -1:
                 atype = '529'
@@ -102,11 +89,57 @@ class PersonalCapital(object):
                 atype = 'investment'
 
             accts.append(
-                Account(name, detail, atype,
-                        self._currency_to_float(value))
+                Account(name, detail, atype, self._currency_to_float(value))
             )
 
         return accts
+
+    def _accounts_by_group(self, group_name):
+        """As of 7/31/2017, the accounts are each group inside of a div like this:
+
+        <div id="js-collapsible-panel-BANK" class="in" style="height:auto">
+
+        Within that div, each account's information is spread across two "rows".
+        """
+        group_div = self.browser.find_element_by_xpath(
+            ".//div[@id='js-collapsible-panel-%s']" % group_name)
+
+        rows = group_div.find_elements_by_xpath(
+            ".//div[@class='sidebar-account__row']")
+        LOG.debug("Found %d rows" % len(rows))
+
+        # with 2 rows representing each account, this should be an even number:
+        if len(rows) % 2 != 0:
+            raise Exception('Odd number of %s rows? (%d)' % (group_name, len(rows)))
+
+        accounts = []
+        i = 0
+        while i < len(rows):
+            # <a class="firmName" title="Consumers CU" href="/page/login/app#/accounts/details?ua=25483608" data-hj-masked="">Consumers CU</a>
+            row = rows[i]
+
+            LOG.debug("Account details:")
+            firm_name = row.find_element_by_xpath(".//a[@class='firmName']")
+            firm_name = firm_name.get_attribute('innerHTML')
+            LOG.debug("  =>Firm name: %s" % firm_name)
+
+            # <h4 class="sidebar-account__value qa-sidebar-account-value">
+            h4 = row.find_element_by_xpath(".//h4[contains(@class, 'sidebar-account__value')]")
+            account_value = h4.get_attribute('innerHTML').strip()
+            LOG.debug("  =>Account value: %s" % account_value)
+
+            i += 1
+            row = rows[i]
+
+            # <div class="sidebar-account__detail-name qa-sidebar-account-detail-name" title="508 Phelps Llc Chk - Ending in 7970" data-hj-masked="">508 Phelps LLC checking</div>
+            div = row.find_element_by_xpath(".//div[contains(@class, 'sidebar-account__detail-name')]")
+            account_detail = div.get_attribute('innerHTML')
+            LOG.debug("  =>Account detail: %s" % account_detail)
+
+            i += 1
+            accounts.append((firm_name, account_detail, account_value))
+
+        return accounts
 
     def _add_cookies(self):
         """Add any cookies for the current browser page"""
@@ -144,6 +177,14 @@ class PersonalCapital(object):
 
         # remove leading $ and ,'s
         return float(s.replace('$', '').replace(',', ''))
+
+    def _d(self, elt):
+        """Quick dump of element for debugger usage"""
+        print elt.get_attribute('innerHTML')
+
+    def _dump(self, elt, filename):
+        with codecs.open(filename, 'w', encoding='utf8') as f:
+            f.write(elt.get_attribute('innerHTML'))
 
     def _load_cookies(self):
         """Add saved cookies to the current session"""
